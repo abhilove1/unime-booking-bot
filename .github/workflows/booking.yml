@@ -1,9 +1,6 @@
 name: UNIME Booking Bot
 on:
-  schedule:
-    - cron: '0 7 * * *'   # 07:00 UTC = 08:00 CET  (winter, Oct–Mar)
-    - cron: '0 6 * * *'   # 06:00 UTC = 08:00 CEST (summer, Mar–Oct)
-  workflow_dispatch:          # manual trigger button
+  workflow_dispatch:          # triggered externally by cron-job.org
 
 jobs:
   book:
