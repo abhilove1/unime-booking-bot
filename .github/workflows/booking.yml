@@ -1,14 +1,13 @@
 name: UNIME Booking Bot
-
 on:
   schedule:
-    - cron: '57 6 * * 1-6'  # 07:57 UTC = 08:57 CEST (Mon-Sat)
+    - cron: '0 7 * * *'   # 07:00 UTC = 08:00 CET  (winter, Oct–Mar)
+    - cron: '0 6 * * *'   # 06:00 UTC = 08:00 CEST (summer, Mar–Oct)
   workflow_dispatch:          # manual trigger button
 
 jobs:
   book:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
