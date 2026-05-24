@@ -92,12 +92,32 @@ def select_time_slot(driver, slot_preference="evening"):
     print(f"✅ Slot selected: {actual_slot_booked}")
     return actual_slot_booked
 
+def dismiss_alert_if_present(driver):
+    """Dismiss any open alert and return its text, or None if no alert."""
+    try:
+        alert = driver.switch_to.alert
+        alert_text = alert.text
+        print(f"⚠️ Alert detected: {alert_text}")
+        alert.accept()
+        return alert_text
+    except:
+        return None
+
 def fill_and_submit(driver, slot_preference="evening"):
     print(f"\n{'='*50}")
     print(f"🚀 Booking: {slot_preference.upper()} SLOT")
     print(f"{'='*50}")
+
+    # ── Clear session state before each booking ───────
+    # Prevents server treating second booking as duplicate
+    driver.delete_all_cookies()
+    driver.get("about:blank")
+    time.sleep(1)
     driver.get(FORM_URL)
     time.sleep(2)
+
+    # ── Dismiss any leftover alert from previous round ─
+    dismiss_alert_if_present(driver)
 
     name_field = wait_for_element(driver, By.ID, "fieldname2_1")
     name_field.clear()
@@ -125,7 +145,13 @@ def fill_and_submit(driver, slot_preference="evening"):
     submit_btn = wait_for_element(driver, By.CSS_SELECTOR, "div.pbSubmit")
     driver.execute_script("arguments[0].click();", submit_btn)
     print("⏳ Waiting for server confirmation...")
-    time.sleep(10)  # increased from 3 → 10 to handle slow server responses
+    time.sleep(10)
+
+    # ── Check for alert after submission ──────────────
+    alert_text = dismiss_alert_if_present(driver)
+    if alert_text and "già esistente" in alert_text:
+        print(f"⚠️ Server says already booked for this slot.")
+        return False, actual_slot, selected_date
 
     page_text = driver.page_source.lower()
     success   = any(w in page_text for w in ["grazie", "conferm", "thank", "success"])
@@ -148,7 +174,7 @@ def main():
         print(f"\n❌ EVENING booking error: {e}")
         print("⚠️ Continuing to morning slot...\n")
         results["round1"] = {"success": False, "slot": "evening", "date": "unknown"}
-        slot1 = "evening"  # ensure morning is not skipped
+        slot1 = "evening"
 
     time.sleep(5)
 
