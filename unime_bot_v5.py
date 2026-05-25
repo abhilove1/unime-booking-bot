@@ -92,32 +92,12 @@ def select_time_slot(driver, slot_preference="evening"):
     print(f"✅ Slot selected: {actual_slot_booked}")
     return actual_slot_booked
 
-def dismiss_alert_if_present(driver):
-    """Dismiss any open alert and return its text, or None if no alert."""
-    try:
-        alert = driver.switch_to.alert
-        alert_text = alert.text
-        print(f"⚠️ Alert detected: {alert_text}")
-        alert.accept()
-        return alert_text
-    except:
-        return None
-
 def fill_and_submit(driver, slot_preference="evening"):
     print(f"\n{'='*50}")
     print(f"🚀 Booking: {slot_preference.upper()} SLOT")
     print(f"{'='*50}")
-
-    # ── Clear session state before each booking ───────
-    # Prevents server treating second booking as duplicate
-    driver.delete_all_cookies()
-    driver.get("about:blank")
-    time.sleep(1)
     driver.get(FORM_URL)
     time.sleep(2)
-
-    # ── Dismiss any leftover alert from previous round ─
-    dismiss_alert_if_present(driver)
 
     name_field = wait_for_element(driver, By.ID, "fieldname2_1")
     name_field.clear()
@@ -144,14 +124,7 @@ def fill_and_submit(driver, slot_preference="evening"):
 
     submit_btn = wait_for_element(driver, By.CSS_SELECTOR, "div.pbSubmit")
     driver.execute_script("arguments[0].click();", submit_btn)
-    print("⏳ Waiting for server confirmation...")
-    time.sleep(10)
-
-    # ── Check for alert after submission ──────────────
-    alert_text = dismiss_alert_if_present(driver)
-    if alert_text and "già esistente" in alert_text:
-        print(f"⚠️ Server says already booked for this slot.")
-        return False, actual_slot, selected_date
+    time.sleep(3)
 
     page_text = driver.page_source.lower()
     success   = any(w in page_text for w in ["grazie", "conferm", "thank", "success"])
@@ -162,36 +135,39 @@ def fill_and_submit(driver, slot_preference="evening"):
     return success, actual_slot, selected_date
 
 def main():
-    driver   = get_driver()
-    results  = {}
     run_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    results  = {}
 
-    # ── ROUND 1: Evening ──────────────────────────────
+    # ── ROUND 1: Evening — fresh browser instance ─────
+    driver1 = get_driver()
     try:
-        success1, slot1, date1 = fill_and_submit(driver, "evening")
+        success1, slot1, date1 = fill_and_submit(driver1, "evening")
         results["round1"] = {"success": success1, "slot": slot1, "date": date1}
     except Exception as e:
-        print(f"\n❌ EVENING booking error: {e}")
-        print("⚠️ Continuing to morning slot...\n")
+        print(f"\n❌ EVENING error: {e}")
         results["round1"] = {"success": False, "slot": "evening", "date": "unknown"}
         slot1 = "evening"
+    finally:
+        driver1.quit()
+        print("🔒 Browser 1 closed.")
 
-    time.sleep(5)
+    time.sleep(10)  # wait between browser instances
 
-    # ── ROUND 2: Morning ──────────────────────────────
-    try:
-        if slot1 == "morning_fallback":
-            print("ℹ️ Morning already booked as fallback — skipping Round 2.")
-            results["round2"] = {"success": None, "slot": "skipped", "date": results["round1"]["date"]}
-        else:
-            success2, slot2, date2 = fill_and_submit(driver, "morning")
+    # ── ROUND 2: Morning — completely fresh browser ───
+    if slot1 == "morning_fallback":
+        print("ℹ️ Morning already booked as fallback — skipping Round 2.")
+        results["round2"] = {"success": None, "slot": "skipped", "date": date1}
+    else:
+        driver2 = get_driver()
+        try:
+            success2, slot2, date2 = fill_and_submit(driver2, "morning")
             results["round2"] = {"success": success2, "slot": slot2, "date": date2}
-    except Exception as e:
-        print(f"\n❌ MORNING booking error: {e}")
-        results["round2"] = {"success": False, "slot": "morning", "date": "unknown"}
-
-    driver.quit()
-    print("\n🔒 Browser closed.")
+        except Exception as e:
+            print(f"\n❌ MORNING error: {e}")
+            results["round2"] = {"success": False, "slot": "morning", "date": "unknown"}
+        finally:
+            driver2.quit()
+            print("🔒 Browser 2 closed.")
 
     # ── Summary ───────────────────────────────────────
     r1 = results.get("round1", {"slot": "evening", "success": False})
