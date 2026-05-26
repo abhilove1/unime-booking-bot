@@ -1,0 +1,21 @@
+name: UNIME Evening Booking
+on:
+  workflow_dispatch:    # triggered by cron-job.org at 08:00 Europe/Rome
+jobs:
+  book:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install Chrome
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+      - name: Install dependencies
+        run: pip install selenium webdriver-manager
+      - name: Run evening booking
+        run: python book_evening.py
