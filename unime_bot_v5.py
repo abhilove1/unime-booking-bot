@@ -135,54 +135,46 @@ def fill_and_submit(driver, slot_preference="evening"):
     return success, actual_slot, selected_date
 
 def main():
-    run_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    driver   = get_driver()
     results  = {}
+    run_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-    # ── ROUND 1: Evening — fresh browser instance ─────
-    driver1 = get_driver()
     try:
-        success1, slot1, date1 = fill_and_submit(driver1, "evening")
+        # ── ROUND 1: Evening ──────────────────────────────
+        success1, slot1, date1 = fill_and_submit(driver, "evening")
         results["round1"] = {"success": success1, "slot": slot1, "date": date1}
-    except Exception as e:
-        print(f"\n❌ EVENING error: {e}")
-        results["round1"] = {"success": False, "slot": "evening", "date": "unknown"}
-        slot1 = "evening"
-    finally:
-        driver1.quit()
-        print("🔒 Browser 1 closed.")
 
-    time.sleep(10)  # wait between browser instances
+        time.sleep(5)
 
-    # ── ROUND 2: Morning — completely fresh browser ───
-    if slot1 == "morning_fallback":
-        print("ℹ️ Morning already booked as fallback — skipping Round 2.")
-        results["round2"] = {"success": None, "slot": "skipped", "date": date1}
-    else:
-        driver2 = get_driver()
-        try:
-            success2, slot2, date2 = fill_and_submit(driver2, "morning")
+        # ── ROUND 2: Smart decision ───────────────────────
+        if slot1 == "morning_fallback":
+            print("ℹ️ Morning already booked as fallback — skipping Round 2.")
+            results["round2"] = {"success": None, "slot": "skipped", "date": date1}
+        else:
+            success2, slot2, date2 = fill_and_submit(driver, "morning")
             results["round2"] = {"success": success2, "slot": slot2, "date": date2}
-        except Exception as e:
-            print(f"\n❌ MORNING error: {e}")
-            results["round2"] = {"success": False, "slot": "morning", "date": "unknown"}
-        finally:
-            driver2.quit()
-            print("🔒 Browser 2 closed.")
 
-    # ── Summary ───────────────────────────────────────
-    r1 = results.get("round1", {"slot": "evening", "success": False})
-    r2 = results.get("round2", {"slot": "morning", "success": False})
+        # ── Summary ───────────────────────────────────────
+        r1 = results["round1"]
+        r2 = results["round2"]
 
-    def status(r):
-        if r["slot"] == "skipped": return "⏭️  Skipped"
-        return "✅ Booked" if r["success"] else "❌ Failed"
+        def status(r):
+            if r["slot"] == "skipped": return "⏭️  Skipped"
+            return "✅ Booked" if r["success"] else "❌ Failed"
 
-    print(f"\n{'='*50}")
-    print(f"📊 BOOKING SUMMARY — {run_time}")
-    print(f"{'='*50}")
-    print(f"Round 1 → {r1['slot'].upper():25s} {status(r1)}")
-    print(f"Round 2 → {r2['slot'].upper():25s} {status(r2)}")
-    print(f"{'='*50}")
+        print(f"\n{'='*50}")
+        print(f"📊 BOOKING SUMMARY — {run_time}")
+        print(f"{'='*50}")
+        print(f"Round 1 → {r1['slot'].upper():25s} {status(r1)}")
+        print(f"Round 2 → {r2['slot'].upper():25s} {status(r2)}")
+        print(f"{'='*50}")
+
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+
+    finally:
+        driver.quit()
+        print("\n🔒 Browser closed.")
 
 # ── RUN ───────────────────────────────────────────────────
 main()
