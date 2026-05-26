@@ -10,7 +10,7 @@ from datetime import datetime
 
 # ══════════════════════════════════════════════════════════
 YOUR_NAME      = "Abhi Love Devkota"
-YOUR_EMAIL     = "abhi.devkota@studenti.unime.it"
+YOUR_EMAIL     = "abhilovedevkota@gmail.com"
 YOUR_MATRICOLA = "548454"
 FORM_URL       = "https://antonello.unime.it/prenotazione-postazione-biblioteca/?formid=28"
 # ══════════════════════════════════════════════════════════
