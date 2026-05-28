@@ -13,6 +13,7 @@ YOUR_NAME      = "Abhi Love Devkota"
 YOUR_EMAIL     = "abhi.devkota@studenti.unime.it"
 YOUR_MATRICOLA = "548454"
 FORM_URL       = "https://antonello.unime.it/prenotazione-postazione-biblioteca/?formid=28"
+MAX_RETRIES    = 3   # max attempts per slot before giving up
 # ══════════════════════════════════════════════════════════
 
 def get_driver():
@@ -122,9 +123,11 @@ def fill_and_submit(driver, slot_preference="evening"):
         driver.execute_script("arguments[0].click();", cb2)
     time.sleep(0.5)
 
+    # ── Submit with native click (more reliable than JS) ─
     submit_btn = wait_for_element(driver, By.CSS_SELECTOR, "div.pbSubmit")
-    driver.execute_script("arguments[0].click();", submit_btn)
-    time.sleep(3)
+    submit_btn.click()
+    print("⏳ Waiting for server confirmation...")
+    time.sleep(10)  # increased wait for slow server
 
     page_text = driver.page_source.lower()
     success   = any(w in page_text for w in ["grazie", "conferm", "thank", "success"])
@@ -134,47 +137,65 @@ def fill_and_submit(driver, slot_preference="evening"):
         print(f"⚠️ Submitted — confirmation unclear.")
     return success, actual_slot, selected_date
 
+def book_slot_with_retry(slot_preference):
+    """
+    Attempts to book a slot up to MAX_RETRIES times.
+    On each failure: closes browser, waits, opens fresh browser and retries.
+    """
+    for attempt in range(1, MAX_RETRIES + 1):
+        driver = get_driver()
+        try:
+            print(f"🔄 Attempt {attempt}/{MAX_RETRIES} for {slot_preference.upper()}...")
+            success, actual_slot, date = fill_and_submit(driver, slot_preference)
+            driver.quit()
+            print(f"🔒 Browser closed after {slot_preference} attempt {attempt}.")
+            return success, actual_slot, date  # success — exit retry loop
+        except Exception as e:
+            print(f"\n❌ Attempt {attempt} failed: {e}")
+            try:
+                driver.quit()
+            except:
+                pass
+            print(f"🔒 Browser closed after error.")
+            if attempt < MAX_RETRIES:
+                print(f"⏳ Waiting 15s before retry...")
+                time.sleep(15)
+            else:
+                print(f"❌ All {MAX_RETRIES} attempts exhausted for {slot_preference.upper()}.")
+                return False, slot_preference, "unknown"
+
 def main():
-    driver   = get_driver()
-    results  = {}
     run_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    results  = {}
 
-    try:
-        # ── ROUND 1: Evening ──────────────────────────────
-        success1, slot1, date1 = fill_and_submit(driver, "evening")
-        results["round1"] = {"success": success1, "slot": slot1, "date": date1}
+    # ── ROUND 1: Evening ──────────────────────────────
+    success1, slot1, date1 = book_slot_with_retry("evening")
+    results["round1"] = {"success": success1, "slot": slot1, "date": date1}
 
-        time.sleep(5)
+    time.sleep(10)
 
-        # ── ROUND 2: Smart decision ───────────────────────
-        if slot1 == "morning_fallback":
-            print("ℹ️ Morning already booked as fallback — skipping Round 2.")
-            results["round2"] = {"success": None, "slot": "skipped", "date": date1}
-        else:
-            success2, slot2, date2 = fill_and_submit(driver, "morning")
-            results["round2"] = {"success": success2, "slot": slot2, "date": date2}
+    # ── ROUND 2: Morning ──────────────────────────────
+    if slot1 == "morning_fallback":
+        print("ℹ️ Morning already booked as fallback — skipping Round 2.")
+        results["round2"] = {"success": None, "slot": "skipped", "date": date1}
+    else:
+        success2, slot2, date2 = book_slot_with_retry("morning")
+        results["round2"] = {"success": success2, "slot": slot2, "date": date2}
 
-        # ── Summary ───────────────────────────────────────
-        r1 = results["round1"]
-        r2 = results["round2"]
+    # ── Summary ───────────────────────────────────────
+    r1 = results["round1"]
+    r2 = results["round2"]
 
-        def status(r):
-            if r["slot"] == "skipped": return "⏭️  Skipped"
-            return "✅ Booked" if r["success"] else "❌ Failed"
+    def status(r):
+        if r["slot"] == "skipped": return "⏭️  Skipped"
+        return "✅ Booked" if r["success"] else "❌ Failed"
 
-        print(f"\n{'='*50}")
-        print(f"📊 BOOKING SUMMARY — {run_time}")
-        print(f"{'='*50}")
-        print(f"Round 1 → {r1['slot'].upper():25s} {status(r1)}")
-        print(f"Round 2 → {r2['slot'].upper():25s} {status(r2)}")
-        print(f"{'='*50}")
-
-    except Exception as e:
-        print(f"\n❌ Error: {e}")
-
-    finally:
-        driver.quit()
-        print("\n🔒 Browser closed.")
+    print(f"\n{'='*50}")
+    print(f"📊 BOOKING SUMMARY — {run_time}")
+    print(f"{'='*50}")
+    print(f"Round 1 → {r1['slot'].upper():25s} {status(r1)}")
+    print(f"Round 2 → {r2['slot'].upper():25s} {status(r2)}")
+    print(f"{'='*50}")
 
 # ── RUN ───────────────────────────────────────────────────
 main()
