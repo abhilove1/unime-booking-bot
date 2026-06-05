@@ -9,9 +9,9 @@ import time
 from datetime import datetime
 
 # ══════════════════════════════════════════════════════════
-YOUR_NAME      = "Abhi Love Devkota"
-YOUR_EMAIL     = "abhilovedevkota@gmail.com"
-YOUR_MATRICOLA = "548454"
+YOUR_NAME      = "Bipana Bidari"
+YOUR_EMAIL     = "bidaribipana9@gmail.com"
+YOUR_MATRICOLA = "589082"
 FORM_URL       = "https://antonello.unime.it/prenotazione-postazione-biblioteca/?formid=28"
 # ══════════════════════════════════════════════════════════
 
